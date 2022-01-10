@@ -55,7 +55,7 @@ class FunctionScheduler {
         this.intervalIds[name] = null;
       }
     } else {
-      names = Object.keys(this.intervalIds);
+      const names = Object.keys(this.intervalIds);
       for (const name of names) {
         const id = this.intervalIds[name];
         clearInterval(id);
