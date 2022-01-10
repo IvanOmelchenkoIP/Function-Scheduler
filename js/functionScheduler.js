@@ -1,90 +1,90 @@
 'use strict';
 
 class FunctionScheduler {
-  constructor(taskContainer) {
-    this.container = taskContainer;
+  constructor() {
+    this.task = null;
+    this.args = null;
+    this._active = false;
+    this._intervalId = null;
 
-    this.intervalIds = new Object(null);
-    this.counters = new Object(null);
-    this.currentArgs = new Object(null);
-    this.intervalTimes = new Object(null);
+    this._errMsg = {
+      add: `There was a error adding your task!
+Make sure you entered correct task parameters or delete current task!`,
+      run: `There was a error running your task!
+Make sure there is a task to run with correct arguments, you entered pasrameters correctly or there is no task running!`,
+    };
   }
 
-  static of(taskContainer) {
-    return new FunctionScheduler(taskContainer);
+  addTask(func, params) {
+    if (!this._canAdd(func, params)) return this._err(this._errMsg['add']);
+
+    this.task = func;
+    this.args = params;
+
+    console.log(`Your task and its arguments were added.\n`);
   }
 
-  run(name, interval = 0, counter = 1, ...tmpArgs) {
-    const taskArgs = this.container.getTaskArguments(name);
-    const [defaultArgs, boundArgs] = taskArgs;
-    const primaryArgs = tmpArgs[0] === undefined ? defaultArgs : tmpArgs;
-    const args = primaryArgs.concat(boundArgs);
-    this.currentArgs[name] = primaryArgs;
+  _canAdd(func, params) {
+    if (this.task) return false;
+    if (this.args) return false;
 
-    let idAssigned = false;
-    this.counters[name] = counter > 0 ? counter : 0;
-    this.intervalTimes[name] = interval;
-    const id = setInterval(() => {
-      const tasks = this.container.getTasks(name);
-      if (!idAssigned) {
-        this.intervalIds[name] = id;
-        idAssigned = true;
-      }
+    if (!func || typeof func !== 'function') return false;
+    if (func.length && (!params || !Array.isArray(params))) return false;
 
-      if (this.counters[name] === 0 || !tasks) {
-        this.intervalTimes[name] = null;
-        this.currentArgs[name] = null;
-        this.stop(name);
+    return true;
+  }
+
+  runTask(interval = null, counter = 1) {
+    if (!this._canRun(interval, counter)) return this._err(this._errMsg['run']);
+
+    this._active = true;
+    console.log(`Your task started its execution with set parameters.\n`);
+    const intervalId = setInterval(() => {
+      if (counter == 0) this._clearTask(intervalId);
+      try {
+        console.log(`Your task was finished. Results:\n`);
+        this.task.length ? this.task(...this.args) : this.task();
+      } catch (err) {
+        this._err(this._errMsg['run']);
+        console.error(err);
+        clearInterval(intervalId);
+        this._active = false;
         return;
       }
-
-      for (const task of tasks) {
-        if (task.length) task(...args);
-        else task();
-      }
-
-      this.counters[name]--;
+      counter--;
     }, interval);
   }
 
-  stop(name) {
-    if (name) {
-      const id = this.intervalIds[name];
-      if (id) {
-        clearInterval(id);
-        this.intervalIds[name] = null;
-      }
-    } else {
-      names = Object.keys(this.intervalIds);
-      for (const name of names) {
-        const id = this.intervalIds[name];
-        clearInterval(id);
-        this.intervalIds[name] = null;
-      }
-    }
+  _clearTask(intervalId) {
+    clearInterval(intervalId);
+    this._active = false;
+    console.log(`Execution of your task was stopped.\n`);
   }
 
-  pause(name) {
-    this.stop(name);
+  _canRun(interval, counter) {
+    if (this._active) return false;
+
+    if (!interval || !+interval || interval <= 0) return false;
+    if (!counter || !+counter || counter < 1) return false;
+
+    if (!this.task) return false;
+    if (this.task.length && !this.args) return false;
+
+    return true;
   }
 
-  resume(name) {
-    if (name) {
-      const counter = this.counters[name];
-      const interval = this.intervalTimes[name];
-      const args = this.currentArgs[name];
-      const running = this.intervalIds[name];
-      if (counter && !running) this.run(name, interval, counter, ...args);
-    } else {
-      const names = Object.keys(this.counters);
-      for (const name of names) {
-        const counter = this.counters[name];
-        const interval = this.intervalTimes[name];
-        const args = this.currentArgs[name];
-        const running = this.intervalIds[name];
-        if (!running)this.run(name, interval, counter, ...args);
-      }
-    }
+  delTask() {
+    this.task = null;
+    this.args = null;
+    this.active = false;
+
+    console.log(`Current task and its arguments were deleted. 
+Active task execution was stopped.\n`);
+  }
+
+  _err(msg) {
+    if (!msg) return;
+    console.log(`Your command could not be executed.\n${msg}\n`);
   }
 }
 
